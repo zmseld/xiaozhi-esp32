@@ -3,8 +3,6 @@
 
 #include <driver/gpio.h>
 
-#define BOARD_NAME "pocket-esp-ai-by-huy-vector"
-
 #define AUDIO_INPUT_SAMPLE_RATE  16000
 #define AUDIO_OUTPUT_SAMPLE_RATE 24000
 
