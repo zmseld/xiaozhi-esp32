@@ -45,7 +45,7 @@ private:
 
     void InitializeDisplay() {
         esp_lcd_panel_io_i2c_config_t io_config = {
-            .dev_addr = 0x3C,
+            .dev_addr = DISPLAY_I2C_ADDR,
             .scl_speed_hz = 400 * 1000,
             .control_phase_bytes = 1,
             .dc_bit_offset = 6,
