@@ -1,0 +1,55 @@
+name: Build Single Board
+
+on:
+  workflow_dispatch:
+    inputs:
+      board:
+        description: 'Board directory (e.g. pocket-wall-e-c3, espressif/esp32-s3-box-3)'
+        required: true
+        default: 'pocket-wall-e-c3'
+        type: string
+      variant:
+        description: 'Variant name (optional, leave empty for default)'
+        required: false
+        default: ''
+        type: string
+  push:
+    paths:
+      - 'main/boards/pocket-wall-e-c3/**'
+  pull_request:
+    paths:
+      - 'main/boards/pocket-wall-e-c3/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ inputs.board || 'pocket-wall-e-c3' }}
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v6.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build board
+        shell: bash
+        env:
+          BOARD: ${{ inputs.board || 'pocket-wall-e-c3' }}
+          VARIANT: ${{ inputs.variant || '' }}
+        run: |
+          source "$IDF_PATH/export.sh"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          CMD=(python scripts/build.py "$BOARD")
+          if [ -n "$VARIANT" ]; then
+            CMD+=(--name "$VARIANT")
+          fi
+          "${CMD[@]}"
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: xiaozhi_${{ inputs.board || 'pocket-wall-e-c3' }}_${{ github.sha }}
+          path: build/merged-binary.bin
+          if-no-files-found: error
