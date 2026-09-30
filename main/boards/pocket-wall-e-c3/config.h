@@ -1,0 +1,29 @@
+#ifndef _BOARD_CONFIG_H_
+#define _BOARD_CONFIG_H_
+
+#include <driver/gpio.h>
+
+#define BOARD_NAME "pocket-esp-ai-by-huy-vector"
+
+#define AUDIO_INPUT_SAMPLE_RATE  16000
+#define AUDIO_OUTPUT_SAMPLE_RATE 24000
+
+// I2S Audio Pinout for ESP32-C3
+#define AUDIO_I2S_GPIO_WS   GPIO_NUM_4
+#define AUDIO_I2S_GPIO_BCLK GPIO_NUM_5
+#define AUDIO_I2S_GPIO_DIN  GPIO_NUM_6
+#define AUDIO_I2S_GPIO_DOUT GPIO_NUM_7
+
+// Button Pinout
+#define BOOT_BUTTON_GPIO    GPIO_NUM_9
+
+// I2C OLED Display (SSD1306 128x64)
+#define DISPLAY_SDA_PIN     GPIO_NUM_21
+#define DISPLAY_SCL_PIN     GPIO_NUM_20
+#define DISPLAY_WIDTH       128
+#define DISPLAY_HEIGHT      64
+
+#define DISPLAY_MIRROR_X    false
+#define DISPLAY_MIRROR_Y    false
+
+#endif // _BOARD_CONFIG_H_
