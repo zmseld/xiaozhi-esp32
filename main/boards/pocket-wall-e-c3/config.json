@@ -10,7 +10,7 @@
                 "CONFIG_BOARD_TYPE_POCKET_WALL_E_C3=y",
                 "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y",
                 "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions/v2/4m.csv\"",
-                "CONFIG_OLED_SSD1306_128X64=y",
+                "CONFIG_OLED_SH1106_128X64=y",
                 "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y",
                 "CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=3",
                 "CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=4",
