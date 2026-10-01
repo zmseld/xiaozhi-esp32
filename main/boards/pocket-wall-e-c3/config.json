@@ -6,9 +6,17 @@
             "name": "pocket-wall-e-c3",
             "sdkconfig_append": [
                 "CONFIG_BOARD_TYPE_POCKET_WALL_E_C3=y",
+                "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y",
                 "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions/v2/4m.csv\"",
                 "CONFIG_OLED_SSD1306_128X64=y",
                 "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y",
+                "CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=3",
+                "CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=4",
+                "CONFIG_ESP_WIFI_ENABLE_WPA3_SAE=n",
+                "CONFIG_ESP_WIFI_ENTERPRISE_SUPPORT=n",
+                "CONFIG_LWIP_IPV6=n",
+                "CONFIG_MBEDTLS_DYNAMIC_FREE_CONFIG_DATA=y",
+                "CONFIG_FREERTOS_IDLE_TASK_STACKSIZE=768",
                 "CONFIG_USE_ESP_WAKE_WORD=y"
             ]
         }
