@@ -1,6 +1,6 @@
 #include "wifi_board.h"
 #include "codecs/no_audio_codec.h"
-#include "display/lvgl_display.h"
+#include "lvgl_display.h"
 #include "system_reset.h"
 #include "application.h"
 #include "button.h"
@@ -79,6 +79,7 @@ private:
         img_dsc_.data = current_anim_->frames[current_frame_index_];
         if (anim_image_) {
             lv_image_set_src(anim_image_, &img_dsc_);
+            lv_obj_invalidate(anim_image_);
         }
     }
 
@@ -157,33 +158,47 @@ public:
     }
 
     ~PocketOledDisplay() {
-        DisplayLockGuard lock(this);
         if (anim_timer_ != nullptr) {
-            lv_timer_del(anim_timer_);
+            lv_timer_delete(anim_timer_);
             anim_timer_ = nullptr;
         }
         if (content_ != nullptr) {
             lv_obj_del(content_);
+            content_ = nullptr;
+            content_left_ = nullptr;
+            content_right_ = nullptr;
+            anim_image_ = nullptr;
+            chat_message_label_ = nullptr;
         }
         if (status_bar_ != nullptr) {
             status_label_ = nullptr;
             notification_label_ = nullptr;
             lv_obj_del(status_bar_);
+            status_bar_ = nullptr;
         }
         if (top_bar_ != nullptr) {
             network_label_ = nullptr;
             mute_label_ = nullptr;
             battery_label_ = nullptr;
             lv_obj_del(top_bar_);
+            top_bar_ = nullptr;
         }
         if (container_ != nullptr) {
             lv_obj_del(container_);
+            container_ = nullptr;
+        }
+        if (low_battery_popup_ != nullptr) {
+            low_battery_label_ = nullptr;
+            lv_obj_del(low_battery_popup_);
+            low_battery_popup_ = nullptr;
         }
         if (panel_ != nullptr) {
             esp_lcd_panel_del(panel_);
+            panel_ = nullptr;
         }
         if (panel_io_ != nullptr) {
             esp_lcd_panel_io_del(panel_io_);
+            panel_io_ = nullptr;
         }
         lvgl_port_deinit();
     }
@@ -278,8 +293,8 @@ public:
         lv_obj_set_style_border_width(content_, 0, 0);
         lv_obj_set_size(content_, LV_HOR_RES, 50);
         lv_obj_set_flex_flow(content_, LV_FLEX_FLOW_ROW);
-        lv_obj_set_style_flex_main_place(content_, LV_FLEX_ALIGN_CENTER, 0);
-        lv_obj_set_style_flex_cross_place(content_, LV_FLEX_ALIGN_CENTER, 0);
+        lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
+                              LV_FLEX_ALIGN_CENTER);
 
         /* Left: Animated Tabymoji Image */
         content_left_ = lv_obj_create(content_);
@@ -318,6 +333,19 @@ public:
         lv_obj_set_style_anim_duration(chat_message_label_, lv_anim_speed_clamped(60, 300, 60000),
                                        LV_PART_MAIN);
 
+        /* Low Battery Popup */
+        low_battery_popup_ = lv_obj_create(screen);
+        lv_obj_set_scrollbar_mode(low_battery_popup_, LV_SCROLLBAR_MODE_OFF);
+        lv_obj_set_size(low_battery_popup_, LV_HOR_RES * 0.9, text_font->line_height * 2);
+        lv_obj_align(low_battery_popup_, LV_ALIGN_BOTTOM_MID, 0, 0);
+        lv_obj_set_style_bg_color(low_battery_popup_, lv_color_black(), 0);
+        lv_obj_set_style_radius(low_battery_popup_, 10, 0);
+        low_battery_label_ = lv_label_create(low_battery_popup_);
+        lv_label_set_text(low_battery_label_, Lang::Strings::BATTERY_NEED_CHARGE);
+        lv_obj_set_style_text_color(low_battery_label_, lv_color_white(), 0);
+        lv_obj_center(low_battery_label_);
+        lv_obj_add_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN);
+
         /* Animation Timer */
         anim_timer_ = lv_timer_create(
             [](lv_timer_t* timer) {
@@ -345,13 +373,15 @@ public:
             if (content == nullptr || content[0] == '\0') {
                 lv_obj_add_flag(content_right_, LV_OBJ_FLAG_HIDDEN);
                 if (content_) {
-                    lv_obj_set_style_flex_main_place(content_, LV_FLEX_ALIGN_CENTER, 0);
+                    lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
+                                          LV_FLEX_ALIGN_CENTER);
                 }
             } else {
                 lv_label_set_text(chat_message_label_, content_str.c_str());
                 lv_obj_remove_flag(content_right_, LV_OBJ_FLAG_HIDDEN);
                 if (content_) {
-                    lv_obj_set_style_flex_main_place(content_, LV_FLEX_ALIGN_START, 0);
+                    lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
+                                          LV_FLEX_ALIGN_CENTER);
                 }
             }
         }
@@ -365,10 +395,12 @@ public:
             current_frame_index_ = 0;
             if (anim_timer_ != nullptr) {
                 lv_timer_set_period(anim_timer_, current_anim_->frame_delay_ms);
+                lv_timer_reset(anim_timer_);
             }
             img_dsc_.data = current_anim_->frames[0];
             if (anim_image_ != nullptr) {
                 lv_image_set_src(anim_image_, &img_dsc_);
+                lv_obj_invalidate(anim_image_);
             }
         }
     }
@@ -382,10 +414,12 @@ public:
             current_frame_index_ = 0;
             if (anim_timer_ != nullptr) {
                 lv_timer_set_period(anim_timer_, current_anim_->frame_delay_ms);
+                lv_timer_reset(anim_timer_);
             }
             img_dsc_.data = current_anim_->frames[0];
             if (anim_image_ != nullptr) {
                 lv_image_set_src(anim_image_, &img_dsc_);
+                lv_obj_invalidate(anim_image_);
             }
         }
     }
