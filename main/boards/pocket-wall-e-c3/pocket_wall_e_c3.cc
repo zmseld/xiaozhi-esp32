@@ -33,11 +33,21 @@ LV_FONT_DECLARE(BUILTIN_ICON_FONT);
 
 class PocketOledDisplay : public LvglDisplay {
 private:
+    enum class DisplayState {
+        Starting,
+        Standby,
+        Connecting,
+        Listening,
+        Speaking,
+        Configuring,
+    };
+
     esp_lcd_panel_io_handle_t panel_io_ = nullptr;
     esp_lcd_panel_handle_t panel_ = nullptr;
 
     lv_obj_t* anim_image_ = nullptr;
 
+    DisplayState current_state_ = DisplayState::Starting;
     const TabymojiAnimation* current_anim_ = nullptr;
     uint16_t current_frame_index_ = 0;
     lv_timer_t* anim_timer_ = nullptr;
@@ -50,6 +60,27 @@ private:
         lvgl_port_unlock();
     }
 
+    void PlayAnimation(const TabymojiAnimation* anim) {
+        if (anim == nullptr) {
+            return;
+        }
+        if (anim == current_anim_ && current_anim_->loop) {
+            return;
+        }
+
+        current_anim_ = anim;
+        current_frame_index_ = 0;
+        if (anim_timer_ != nullptr) {
+            lv_timer_set_period(anim_timer_, current_anim_->frame_delay_ms);
+            lv_timer_reset(anim_timer_);
+        }
+        img_dsc_.data = current_anim_->frames[0];
+        if (anim_image_ != nullptr) {
+            lv_image_set_src(anim_image_, &img_dsc_);
+            lv_obj_invalidate(anim_image_);
+        }
+    }
+
     void OnAnimTimer() {
         if (!current_anim_ || current_anim_->frame_count == 0) {
             return;
@@ -60,12 +91,37 @@ private:
             if (current_anim_->loop) {
                 current_frame_index_ = 0;
             } else {
-                // Return to idle loop after single-shot animation finishes
-                current_anim_ = Tabymoji_GetById("idle_01_loop");
-                current_frame_index_ = 0;
-                if (anim_timer_) {
-                    lv_timer_set_period(anim_timer_, current_anim_->frame_delay_ms);
+                // If we just finished listening_in (waking up into listening), chain directly into listening_loop!
+                if (strcmp(current_anim_->id, "listening_in") == 0) {
+                    PlayAnimation(Tabymoji_GetById("listening_loop"));
+                    return;
                 }
+
+                // For other single-shot animations, return to the loop for the current state:
+                const TabymojiAnimation* next_anim = nullptr;
+                switch (current_state_) {
+                    case DisplayState::Standby:
+                        next_anim = Tabymoji_GetById("sleeping_loop");
+                        break;
+                    case DisplayState::Listening:
+                        next_anim = Tabymoji_GetById("listening_loop");
+                        break;
+                    case DisplayState::Speaking:
+                        next_anim = Tabymoji_GetById("talking_default_loop");
+                        break;
+                    case DisplayState::Connecting:
+                        next_anim = Tabymoji_GetById("circle");
+                        break;
+                    case DisplayState::Configuring:
+                        next_anim = Tabymoji_GetById("searching_loop");
+                        break;
+                    case DisplayState::Starting:
+                    default:
+                        next_anim = Tabymoji_GetById("sleeping_loop");
+                        break;
+                }
+                PlayAnimation(next_anim);
+                return;
             }
         }
 
@@ -144,7 +200,8 @@ public:
         img_dsc_.header.stride = TABYMOJI_STRIDE;
         img_dsc_.data_size = TABYMOJI_FRAME_BYTES;
 
-        current_anim_ = Tabymoji_GetById("idle_01_loop");
+        current_state_ = DisplayState::Starting;
+        current_anim_ = Tabymoji_GetById("startup");
         if (current_anim_ && current_anim_->frame_count > 0) {
             img_dsc_.data = current_anim_->frames[0];
         }
@@ -205,37 +262,75 @@ public:
 
     virtual void SetEmotion(const char* emotion) override {
         DisplayLockGuard lock(this);
+        if (!emotion || emotion[0] == '\0') {
+            return;
+        }
+
+        // When neutral / robot_2 / default is requested, restore the default animation for current state:
+        if (strcmp(emotion, "neutral") == 0 || strcmp(emotion, "robot_2") == 0 || strcmp(emotion, "default") == 0) {
+            switch (current_state_) {
+                case DisplayState::Standby:
+                    PlayAnimation(Tabymoji_GetById("sleeping_loop"));
+                    break;
+                case DisplayState::Listening:
+                    PlayAnimation(Tabymoji_GetById("listening_loop"));
+                    break;
+                case DisplayState::Speaking:
+                    PlayAnimation(Tabymoji_GetById("talking_default_loop"));
+                    break;
+                case DisplayState::Connecting:
+                    PlayAnimation(Tabymoji_GetById("circle"));
+                    break;
+                case DisplayState::Configuring:
+                    PlayAnimation(Tabymoji_GetById("searching_loop"));
+                    break;
+                case DisplayState::Starting:
+                    PlayAnimation(Tabymoji_GetById("startup"));
+                    break;
+            }
+            return;
+        }
+
+        // Specific emotion from server/LLM:
         const TabymojiAnimation* anim = Tabymoji_GetByEmotion(emotion);
-        if (anim != nullptr && anim != current_anim_) {
-            current_anim_ = anim;
-            current_frame_index_ = 0;
-            if (anim_timer_ != nullptr) {
-                lv_timer_set_period(anim_timer_, current_anim_->frame_delay_ms);
-                lv_timer_reset(anim_timer_);
-            }
-            img_dsc_.data = current_anim_->frames[0];
-            if (anim_image_ != nullptr) {
-                lv_image_set_src(anim_image_, &img_dsc_);
-                lv_obj_invalidate(anim_image_);
-            }
+        if (anim != nullptr) {
+            PlayAnimation(anim);
         }
     }
 
     virtual void SetStatus(const char* status) override {
         DisplayLockGuard lock(this);
-        const TabymojiAnimation* anim = Tabymoji_GetByStatus(status);
-        if (anim != nullptr && anim != current_anim_) {
-            current_anim_ = anim;
-            current_frame_index_ = 0;
-            if (anim_timer_ != nullptr) {
-                lv_timer_set_period(anim_timer_, current_anim_->frame_delay_ms);
-                lv_timer_reset(anim_timer_);
+        if (!status || status[0] == '\0') {
+            return;
+        }
+
+        if (strstr(status, "待命") || strstr(status, "Standby") || strstr(status, "standby") || strstr(status, "Idle") || strstr(status, "idle")) {
+            current_state_ = DisplayState::Standby;
+            PlayAnimation(Tabymoji_GetById("sleeping_loop"));
+        } else if (strstr(status, "聆听") || strstr(status, "Listen") || strstr(status, "listen")) {
+            DisplayState prev = current_state_;
+            current_state_ = DisplayState::Listening;
+            // If waking up from Standby/Sleep, play waking up transition (listening_in)
+            if (prev == DisplayState::Standby || prev == DisplayState::Starting) {
+                PlayAnimation(Tabymoji_GetById("listening_in"));
+            } else {
+                PlayAnimation(Tabymoji_GetById("listening_loop"));
             }
-            img_dsc_.data = current_anim_->frames[0];
-            if (anim_image_ != nullptr) {
-                lv_image_set_src(anim_image_, &img_dsc_);
-                lv_obj_invalidate(anim_image_);
-            }
+        } else if (strstr(status, "说话") || strstr(status, "Speak") || strstr(status, "speak") || strstr(status, "Talking") || strstr(status, "talking")) {
+            current_state_ = DisplayState::Speaking;
+            PlayAnimation(Tabymoji_GetById("talking_default_loop"));
+        } else if (strstr(status, "连接") || strstr(status, "Connect") || strstr(status, "connect") || strstr(status, "Wait") || strstr(status, "wait") || strstr(status, "Logging") || strstr(status, "Checking")) {
+            current_state_ = DisplayState::Connecting;
+            PlayAnimation(Tabymoji_GetById("circle"));
+        } else if (strstr(status, "Starting") || strstr(status, "Initializing") || strstr(status, "Version") || strstr(status, "Ver ")) {
+            current_state_ = DisplayState::Starting;
+            PlayAnimation(Tabymoji_GetById("startup"));
+        } else if (strstr(status, "Config") || strstr(status, "Scan") || strstr(status, "Wi-Fi") || strstr(status, "wifi") || strstr(status, "4G") || strstr(status, "Modem")) {
+            current_state_ = DisplayState::Configuring;
+            PlayAnimation(Tabymoji_GetById("searching_loop"));
+        } else if (strstr(status, "Upgrade") || strstr(status, "upgrading") || strstr(status, "OTA") || strstr(status, "Loading")) {
+            current_state_ = DisplayState::Configuring;
+            PlayAnimation(Tabymoji_GetById("working_loop"));
         }
     }
 
