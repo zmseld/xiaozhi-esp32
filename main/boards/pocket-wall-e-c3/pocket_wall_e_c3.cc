@@ -36,14 +36,7 @@ private:
     esp_lcd_panel_io_handle_t panel_io_ = nullptr;
     esp_lcd_panel_handle_t panel_ = nullptr;
 
-    lv_obj_t* container_ = nullptr;
-    lv_obj_t* top_bar_ = nullptr;
-    lv_obj_t* status_bar_ = nullptr;
-    lv_obj_t* content_ = nullptr;
-    lv_obj_t* content_left_ = nullptr;
-    lv_obj_t* content_right_ = nullptr;
     lv_obj_t* anim_image_ = nullptr;
-    lv_obj_t* chat_message_label_ = nullptr;
 
     const TabymojiAnimation* current_anim_ = nullptr;
     uint16_t current_frame_index_ = 0;
@@ -162,35 +155,9 @@ public:
             lv_timer_delete(anim_timer_);
             anim_timer_ = nullptr;
         }
-        if (content_ != nullptr) {
-            lv_obj_del(content_);
-            content_ = nullptr;
-            content_left_ = nullptr;
-            content_right_ = nullptr;
+        if (anim_image_ != nullptr) {
+            lv_obj_del(anim_image_);
             anim_image_ = nullptr;
-            chat_message_label_ = nullptr;
-        }
-        if (status_bar_ != nullptr) {
-            status_label_ = nullptr;
-            notification_label_ = nullptr;
-            lv_obj_del(status_bar_);
-            status_bar_ = nullptr;
-        }
-        if (top_bar_ != nullptr) {
-            network_label_ = nullptr;
-            mute_label_ = nullptr;
-            battery_label_ = nullptr;
-            lv_obj_del(top_bar_);
-            top_bar_ = nullptr;
-        }
-        if (container_ != nullptr) {
-            lv_obj_del(container_);
-            container_ = nullptr;
-        }
-        if (low_battery_popup_ != nullptr) {
-            low_battery_label_ = nullptr;
-            lv_obj_del(low_battery_popup_);
-            low_battery_popup_ = nullptr;
         }
         if (panel_ != nullptr) {
             esp_lcd_panel_del(panel_);
@@ -211,140 +178,15 @@ public:
 
         DisplayLockGuard lock(this);
 
-        auto lvgl_theme = static_cast<LvglTheme*>(current_theme_);
-        auto text_font = lvgl_theme->text_font()->font();
-        auto icon_font = lvgl_theme->icon_font()->font();
-
         auto screen = lv_screen_active();
-        lv_obj_set_style_text_font(screen, text_font, 0);
-        lv_obj_set_style_text_color(screen, lv_color_black(), 0);
+        lv_obj_set_style_pad_all(screen, 0, 0);
 
-        /* Container */
-        container_ = lv_obj_create(screen);
-        lv_obj_set_size(container_, LV_HOR_RES, LV_VER_RES);
-        lv_obj_set_flex_flow(container_, LV_FLEX_FLOW_COLUMN);
-        lv_obj_set_style_pad_all(container_, 0, 0);
-        lv_obj_set_style_border_width(container_, 0, 0);
-        lv_obj_set_style_pad_row(container_, 0, 0);
-
-        /* Layer 1: Top bar - status icons */
-        top_bar_ = lv_obj_create(container_);
-        lv_obj_set_size(top_bar_, LV_HOR_RES, 14);
-        lv_obj_set_style_radius(top_bar_, 0, 0);
-        lv_obj_set_style_bg_opa(top_bar_, LV_OPA_TRANSP, 0);
-        lv_obj_set_style_border_width(top_bar_, 0, 0);
-        lv_obj_set_style_pad_all(top_bar_, 0, 0);
-        lv_obj_set_flex_flow(top_bar_, LV_FLEX_FLOW_ROW);
-        lv_obj_set_flex_align(top_bar_, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER,
-                              LV_FLEX_ALIGN_CENTER);
-        lv_obj_set_scrollbar_mode(top_bar_, LV_SCROLLBAR_MODE_OFF);
-
-        network_label_ = lv_label_create(top_bar_);
-        lv_label_set_text(network_label_, "");
-        lv_obj_set_style_text_font(network_label_, icon_font, 0);
-
-        lv_obj_t* right_icons = lv_obj_create(top_bar_);
-        lv_obj_set_size(right_icons, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-        lv_obj_set_style_bg_opa(right_icons, LV_OPA_TRANSP, 0);
-        lv_obj_set_style_border_width(right_icons, 0, 0);
-        lv_obj_set_style_pad_all(right_icons, 0, 0);
-        lv_obj_set_flex_flow(right_icons, LV_FLEX_FLOW_ROW);
-        lv_obj_set_flex_align(right_icons, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER,
-                              LV_FLEX_ALIGN_CENTER);
-
-        mute_label_ = lv_label_create(right_icons);
-        lv_label_set_text(mute_label_, "");
-        lv_obj_set_style_text_font(mute_label_, icon_font, 0);
-
-        battery_label_ = lv_label_create(right_icons);
-        lv_label_set_text(battery_label_, "");
-        lv_obj_set_style_text_font(battery_label_, icon_font, 0);
-
-        /* Layer 2: Status bar - center text labels */
-        status_bar_ = lv_obj_create(screen);
-        lv_obj_set_size(status_bar_, LV_HOR_RES, 14);
-        lv_obj_set_style_radius(status_bar_, 0, 0);
-        lv_obj_set_style_bg_opa(status_bar_, LV_OPA_TRANSP, 0);
-        lv_obj_set_style_border_width(status_bar_, 0, 0);
-        lv_obj_set_style_pad_all(status_bar_, 0, 0);
-        lv_obj_set_scrollbar_mode(status_bar_, LV_SCROLLBAR_MODE_OFF);
-        lv_obj_set_style_layout(status_bar_, LV_LAYOUT_NONE, 0);
-        lv_obj_align(status_bar_, LV_ALIGN_TOP_MID, 0, 0);
-
-        notification_label_ = lv_label_create(status_bar_);
-        lv_obj_set_width(notification_label_, LV_HOR_RES);
-        lv_obj_set_style_text_align(notification_label_, LV_TEXT_ALIGN_CENTER, 0);
-        lv_label_set_text(notification_label_, "");
-        lv_obj_align(notification_label_, LV_ALIGN_CENTER, 0, 0);
-        lv_obj_add_flag(notification_label_, LV_OBJ_FLAG_HIDDEN);
-
-        status_label_ = lv_label_create(status_bar_);
-        lv_obj_set_width(status_label_, LV_HOR_RES);
-        lv_label_set_long_mode(status_label_, LV_LABEL_LONG_SCROLL_CIRCULAR);
-        lv_obj_set_style_text_align(status_label_, LV_TEXT_ALIGN_CENTER, 0);
-        lv_label_set_text(status_label_, Lang::Strings::INITIALIZING);
-        lv_obj_align(status_label_, LV_ALIGN_CENTER, 0, 0);
-
-        /* Content Area */
-        content_ = lv_obj_create(container_);
-        lv_obj_set_scrollbar_mode(content_, LV_SCROLLBAR_MODE_OFF);
-        lv_obj_set_style_radius(content_, 0, 0);
-        lv_obj_set_style_pad_all(content_, 0, 0);
-        lv_obj_set_style_border_width(content_, 0, 0);
-        lv_obj_set_size(content_, LV_HOR_RES, 50);
-        lv_obj_set_flex_flow(content_, LV_FLEX_FLOW_ROW);
-        lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
-                              LV_FLEX_ALIGN_CENTER);
-
-        /* Left: Animated Tabymoji Image */
-        content_left_ = lv_obj_create(content_);
-        lv_obj_set_size(content_left_, TABYMOJI_WIDTH, TABYMOJI_HEIGHT);
-        lv_obj_set_style_pad_all(content_left_, 0, 0);
-        lv_obj_set_style_border_width(content_left_, 0, 0);
-        lv_obj_set_scrollbar_mode(content_left_, LV_SCROLLBAR_MODE_OFF);
-
-        anim_image_ = lv_image_create(content_left_);
+        anim_image_ = lv_image_create(screen);
         lv_obj_set_size(anim_image_, TABYMOJI_WIDTH, TABYMOJI_HEIGHT);
         lv_obj_center(anim_image_);
         if (img_dsc_.data != nullptr) {
             lv_image_set_src(anim_image_, &img_dsc_);
         }
-
-        /* Right: Subtitle Text */
-        content_right_ = lv_obj_create(content_);
-        lv_obj_set_size(content_right_, LV_SIZE_CONTENT, TABYMOJI_HEIGHT);
-        lv_obj_set_style_pad_all(content_right_, 0, 0);
-        lv_obj_set_style_border_width(content_right_, 0, 0);
-        lv_obj_set_flex_grow(content_right_, 1);
-        lv_obj_add_flag(content_right_, LV_OBJ_FLAG_HIDDEN);
-
-        chat_message_label_ = lv_label_create(content_right_);
-        lv_label_set_text(chat_message_label_, "");
-        lv_label_set_long_mode(chat_message_label_, LV_LABEL_LONG_SCROLL_CIRCULAR);
-        lv_obj_set_style_text_align(chat_message_label_, LV_TEXT_ALIGN_LEFT, 0);
-        lv_obj_set_width(chat_message_label_, width_ - TABYMOJI_WIDTH - 4);
-        lv_obj_set_style_pad_top(chat_message_label_, 12, 0);
-
-        static lv_anim_t a;
-        lv_anim_init(&a);
-        lv_anim_set_delay(&a, 1000);
-        lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
-        lv_obj_set_style_anim(chat_message_label_, &a, LV_PART_MAIN);
-        lv_obj_set_style_anim_duration(chat_message_label_, lv_anim_speed_clamped(60, 300, 60000),
-                                       LV_PART_MAIN);
-
-        /* Low Battery Popup */
-        low_battery_popup_ = lv_obj_create(screen);
-        lv_obj_set_scrollbar_mode(low_battery_popup_, LV_SCROLLBAR_MODE_OFF);
-        lv_obj_set_size(low_battery_popup_, LV_HOR_RES * 0.9, text_font->line_height * 2);
-        lv_obj_align(low_battery_popup_, LV_ALIGN_BOTTOM_MID, 0, 0);
-        lv_obj_set_style_bg_color(low_battery_popup_, lv_color_black(), 0);
-        lv_obj_set_style_radius(low_battery_popup_, 10, 0);
-        low_battery_label_ = lv_label_create(low_battery_popup_);
-        lv_label_set_text(low_battery_label_, Lang::Strings::BATTERY_NEED_CHARGE);
-        lv_obj_set_style_text_color(low_battery_label_, lv_color_white(), 0);
-        lv_obj_center(low_battery_label_);
-        lv_obj_add_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN);
 
         /* Animation Timer */
         anim_timer_ = lv_timer_create(
@@ -358,33 +200,7 @@ public:
     }
 
     virtual void SetChatMessage(const char* role, const char* content) override {
-        DisplayLockGuard lock(this);
-        if (chat_message_label_ == nullptr) {
-            return;
-        }
-
-        std::string content_str = content ? content : "";
-        std::replace(content_str.begin(), content_str.end(), '\n', ' ');
-
-        lv_anim_delete(chat_message_label_, nullptr);
-        if (content_right_ == nullptr) {
-            lv_label_set_text(chat_message_label_, content_str.c_str());
-        } else {
-            if (content == nullptr || content[0] == '\0') {
-                lv_obj_add_flag(content_right_, LV_OBJ_FLAG_HIDDEN);
-                if (content_) {
-                    lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
-                                          LV_FLEX_ALIGN_CENTER);
-                }
-            } else {
-                lv_label_set_text(chat_message_label_, content_str.c_str());
-                lv_obj_remove_flag(content_right_, LV_OBJ_FLAG_HIDDEN);
-                if (content_) {
-                    lv_obj_set_flex_align(content_, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
-                                          LV_FLEX_ALIGN_CENTER);
-                }
-            }
-        }
+        // Big face emoji only - no chat text overlay
     }
 
     virtual void SetEmotion(const char* emotion) override {
@@ -406,7 +222,6 @@ public:
     }
 
     virtual void SetStatus(const char* status) override {
-        LvglDisplay::SetStatus(status);
         DisplayLockGuard lock(this);
         const TabymojiAnimation* anim = Tabymoji_GetByStatus(status);
         if (anim != nullptr && anim != current_anim_) {
@@ -422,6 +237,18 @@ public:
                 lv_obj_invalidate(anim_image_);
             }
         }
+    }
+
+    virtual void ShowNotification(const char* notification, int duration_ms = 3000) override {
+        // Big face emoji only - no text notification overlay
+    }
+
+    virtual void ShowNotification(const std::string& notification, int duration_ms = 3000) override {
+        // Big face emoji only - no text notification overlay
+    }
+
+    virtual void UpdateStatusBar(bool update_all = false) override {
+        // Big face emoji only - no status bar / clock / battery / wifi text
     }
 
     virtual void SetTheme(Theme* theme) override {
