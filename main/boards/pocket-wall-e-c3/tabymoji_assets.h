@@ -8,10 +8,10 @@
 extern "C" {
 #endif
 
-#define TABYMOJI_WIDTH  48
-#define TABYMOJI_HEIGHT 48
-#define TABYMOJI_STRIDE 6
-#define TABYMOJI_FRAME_BYTES 288
+#define TABYMOJI_WIDTH  128
+#define TABYMOJI_HEIGHT 64
+#define TABYMOJI_STRIDE 16
+#define TABYMOJI_FRAME_BYTES 1024
 
 typedef struct {
     const char* id;
