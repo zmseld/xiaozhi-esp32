@@ -13,7 +13,7 @@
 #define AUDIO_I2S_GPIO_DIN  GPIO_NUM_8
 
 // Button Pinout
-#define BOOT_BUTTON_GPIO    GPIO_NUM_9
+#define BOOT_BUTTON_GPIO    GPIO_NUM_NC
 
 // I2C OLED Display (SSD1306 128x64)
 // Note: OLED PCB silk labels 0x78/0x7A are 8-bit addresses.
@@ -21,8 +21,8 @@
 // 0x78 -> 0x3C (0x78 >> 1)
 // 0x7A -> 0x3D (0x7A >> 1)
 #define DISPLAY_I2C_ADDR    0x3C
-#define DISPLAY_SDA_PIN     GPIO_NUM_21
-#define DISPLAY_SCL_PIN     GPIO_NUM_20
+#define DISPLAY_SDA_PIN     GPIO_NUM_9
+#define DISPLAY_SCL_PIN     GPIO_NUM_10
 #define DISPLAY_WIDTH       128
 #if CONFIG_OLED_SSD1306_128X32
 #define DISPLAY_HEIGHT  32
